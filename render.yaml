@@ -16,20 +16,5 @@ services:
       - key: NEXTAUTH_SECRET
         generateValue: true
       - key: NEXTAUTH_URL
-        fromService:
-          type: web
-          name: contractor-pro
-          property: host
-      - key: DATABASE_URL
-        fromDatabase:
-          name: contractor-pro-db
-          property: connectionString
-
-  # PostgreSQL Database
-databases:
-  - name: contractor-pro-db
-    region: frankfurt
-    plan: free
-    databaseName: contractor_pro
-    user: contractor_admin
-
+        value: https://contractor-pro.onrender.com
+      # DATABASE_URL - Add manually from Neon/Supabase or existing Render DB
