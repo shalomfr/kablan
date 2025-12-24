@@ -1,0 +1,250 @@
+// Prisma schema for Contractor SaaS Platform
+// Using SQLite for development
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ==================== Organizations & Users ====================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  plan      String   @default("FREE") // FREE, PRO, ENTERPRISE
+  settings  String   @default("{}")   // JSON string
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users          User[]
+  projects       Project[]
+  materialPrices MaterialPrice[]
+  suppliers      Supplier[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  name           String?
+  password       String?
+  image          String?
+  role           String       @default("CONTRACTOR") // ADMIN, CONTRACTOR, EMPLOYEE
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  projects Project[]
+  accounts Account[]
+  sessions Session[]
+}
+
+// NextAuth models
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ==================== Projects ====================
+
+model Project {
+  id             String   @id @default(cuid())
+  name           String
+  description    String?
+  clientName     String
+  clientPhone    String?
+  clientEmail    String?
+  address        String?
+  status         String   @default("DRAFT") // DRAFT, QUOTED, APPROVED, IN_PROGRESS, COMPLETED, CANCELLED
+  totalCost      Float    @default(0)
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  rooms     Room[]
+  workItems WorkItem[]
+  quotes    Quote[]
+  model3D   Model3D?
+}
+
+model Room {
+  id        String   @id @default(cuid())
+  name      String
+  width     Float
+  length    Float
+  height    Float    @default(2.7)
+  projectId String
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workItems WorkItem[]
+}
+
+// ==================== Work Items ====================
+
+model WorkItem {
+  id           String   @id @default(cuid())
+  projectId    String
+  project      Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  roomId       String?
+  room         Room?    @relation(fields: [roomId], references: [id], onDelete: SetNull)
+  category     String
+  subcategory  String
+  description  String?
+  quantity     Float
+  unit         String
+  width        Float?
+  length       Float?
+  height       Float?
+  depth        Float?
+  area         Float?
+  volume       Float?
+  laborType    String   @default("SUBCONTRACTOR") // SELF, SUBCONTRACTOR, EMPLOYEE
+  difficulty   Int      @default(3)
+  wasteFactor  Float    @default(0.1)
+  contingency  Float    @default(0.1)
+  materialCost Float    @default(0)
+  laborCost    Float    @default(0)
+  totalCost    Float    @default(0)
+  parameters   String   @default("{}") // JSON string
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  materialSelections MaterialSelection[]
+}
+
+// ==================== Materials ====================
+
+model Material {
+  id             String   @id @default(cuid())
+  name           String
+  nameHe         String
+  category       String
+  subcategory    String?
+  unit           String
+  basePrice      Float
+  specifications String   @default("{}") // JSON string
+  imageUrl       String?
+  model3dUrl     String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  prices     MaterialPrice[]
+  selections MaterialSelection[]
+}
+
+model MaterialPrice {
+  id             String       @id @default(cuid())
+  materialId     String
+  material       Material     @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  customPrice    Float
+  supplierId     String?
+  supplier       Supplier?    @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  notes          String?
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([materialId, organizationId])
+}
+
+model MaterialSelection {
+  id           String   @id @default(cuid())
+  workItemId   String
+  workItem     WorkItem @relation(fields: [workItemId], references: [id], onDelete: Cascade)
+  materialId   String
+  material     Material @relation(fields: [materialId], references: [id], onDelete: Cascade)
+  quantity     Float
+  pricePerUnit Float
+  totalPrice   Float
+  createdAt    DateTime @default(now())
+}
+
+model Supplier {
+  id             String        @id @default(cuid())
+  name           String
+  contact        String?
+  phone          String?
+  email          String?
+  address        String?
+  deliveryTime   Int           @default(7)
+  minOrder       Float         @default(0)
+  rating         Float         @default(5)
+  organizationId String
+  organization   Organization  @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  materialPrices MaterialPrice[]
+}
+
+// ==================== Quotes ====================
+
+model Quote {
+  id              String   @id @default(cuid())
+  projectId       String
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  version         Int      @default(1)
+  totalMaterials  Float    @default(0)
+  totalLabor      Float    @default(0)
+  totalContingency Float   @default(0)
+  discount        Float    @default(0)
+  tax             Float    @default(0.17)
+  grandTotal      Float    @default(0)
+  validUntil      DateTime
+  notes           String?
+  terms           String?
+  status          String   @default("DRAFT") // DRAFT, SENT, VIEWED, ACCEPTED, REJECTED
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ==================== 3D Model ====================
+
+model Model3D {
+  id        String   @id @default(cuid())
+  projectId String   @unique
+  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  data      String   @default("{}") // JSON string
+  thumbnail String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
