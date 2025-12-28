@@ -61,3 +61,4 @@ export function getSubcategoryById(id: string): WorkSubcategory | undefined {
   return subcategories.find(sub => sub.id === id);
 }
 
+

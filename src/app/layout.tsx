@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Rubik } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "@/components/shared/providers";
 
@@ -24,6 +25,15 @@ export default function RootLayout({
         <Providers>
           {children}
         </Providers>
+        {/* Client Hub CRM Chat Widget */}
+        {process.env.NEXT_PUBLIC_CRM_URL && process.env.NEXT_PUBLIC_CRM_API_KEY && (
+          <Script
+            src={`${process.env.NEXT_PUBLIC_CRM_URL}/widget.js`}
+            data-api-key={process.env.NEXT_PUBLIC_CRM_API_KEY}
+            data-position="bottom-left"
+            strategy="lazyOnload"
+          />
+        )}
       </body>
     </html>
   );

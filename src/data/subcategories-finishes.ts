@@ -73,3 +73,4 @@ export const finishesSubcategories: WorkSubcategory[] = [
   { id: 'fence-wood', category: 'carpentry', nameHe: 'גדר עץ', nameEn: 'Wood fence', unit: 'lm', wasteFactor: 0.1, laborRate: 220, parameters: [{ id: 'height', nameHe: 'גובה', nameEn: 'Height', type: 'number', unit: 'מ', required: true }], defaultMaterials: ['fence-panels', 'fence-posts'] },
 ];
 
+

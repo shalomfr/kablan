@@ -89,3 +89,4 @@ export const systemsSubcategories: WorkSubcategory[] = [
   { id: 'bio-treatment', category: 'plumbing', nameHe: 'מכון טיהור ביולוגי', nameEn: 'Bio treatment plant', unit: 'unit', wasteFactor: 0, laborRate: 4500, parameters: [{ id: 'capacity', nameHe: 'קיבולת', nameEn: 'Capacity', type: 'number', required: true }], defaultMaterials: ['bio-plant'] },
 ];
 
+

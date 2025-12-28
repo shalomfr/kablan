@@ -140,3 +140,4 @@ export const utilitiesSubcategories: WorkSubcategory[] = [
   { id: 'concrete-drilling', category: 'demolition', nameHe: 'קידוח בטון', nameEn: 'Concrete drilling', unit: 'unit', wasteFactor: 0, laborRate: 55, parameters: [{ id: 'diameter', nameHe: 'קוטר', nameEn: 'Diameter', type: 'number', unit: 'מ"מ', required: true }], defaultMaterials: [] },
 ];
 
+

@@ -58,3 +58,4 @@ export const constructionSubcategories: WorkSubcategory[] = [
   { id: 'gypsum-repair', category: 'drywall', nameHe: 'תיקוני גבס', nameEn: 'Gypsum repairs', unit: 'unit', wasteFactor: 0.2, laborRate: 85, parameters: [], defaultMaterials: ['gypsum-patch'] },
 ];
 
+
