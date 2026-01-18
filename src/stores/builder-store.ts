@@ -5,6 +5,7 @@ import { Room3D, Wall3D, Door3D, Window3D, Object3D, Material3D } from '@/types'
 
 type Tool = 'select' | 'wall' | 'door' | 'window' | 'object' | 'measure' | 'material' | 'camera';
 type ViewMode = '2d' | '3d' | 'walk';
+type ObjectCategory = 'furniture' | 'fixture' | 'electrical' | 'hvac' | 'decoration';
 
 interface BuilderState {
   // Current room/space
@@ -31,6 +32,11 @@ interface BuilderState {
   isDrawingWall: boolean;
   wallStartPoint: { x: number; y: number } | null;
   tempWallEnd: { x: number; y: number } | null;
+  
+  // Object placement state
+  placementObject: string | null;
+  placementObjectCategory: ObjectCategory | null;
+  placementPosition: { x: number; y: number; z: number } | null;
   
   // Default settings
   defaultWallHeight: number;
@@ -59,6 +65,12 @@ interface BuilderState {
   finishDrawingWall: () => void;
   cancelDrawingWall: () => void;
   
+  // Object placement
+  startPlacingObject: (objectType: string, category: ObjectCategory) => void;
+  setPlacementPosition: (position: { x: number; y: number; z: number }) => void;
+  placeObject: () => void;
+  cancelPlacement: () => void;
+  
   addWall: (wall: Wall3D) => void;
   updateWall: (id: string, wall: Partial<Wall3D>) => void;
   removeWall: (id: string) => void;
@@ -77,6 +89,12 @@ interface BuilderState {
   
   setDefaultMaterial: (material: Material3D | null) => void;
   applyMaterialToSelected: (material: Material3D) => void;
+  
+  // Delete selected element
+  deleteSelected: () => void;
+  
+  // Get selected element info
+  getSelectedElement: () => { type: string; element: Wall3D | Door3D | Window3D | Object3D | null };
   
   reset: () => void;
 }
@@ -106,6 +124,9 @@ const initialState = {
   isDrawingWall: false,
   wallStartPoint: null,
   tempWallEnd: null,
+  placementObject: null,
+  placementObjectCategory: null,
+  placementPosition: null,
   defaultWallHeight: 2.7,
   defaultWallThickness: 0.2,
   defaultMaterial: null,
@@ -155,7 +176,18 @@ export const useBuilderStore = create<BuilderState>()((set, get) => ({
     selectedObject: null,
   }),
   
-  setCurrentTool: (tool) => set({ currentTool: tool }),
+  setCurrentTool: (tool) => {
+    const state = get();
+    // Cancel any ongoing operations when changing tools
+    if (state.isDrawingWall) {
+      get().cancelDrawingWall();
+    }
+    if (state.placementObject) {
+      get().cancelPlacement();
+    }
+    set({ currentTool: tool });
+  },
+  
   setViewMode: (mode) => set({ viewMode: mode }),
   
   setGridSize: (size) => set({ gridSize: size }),
@@ -221,6 +253,51 @@ export const useBuilderStore = create<BuilderState>()((set, get) => ({
     isDrawingWall: false,
     wallStartPoint: null,
     tempWallEnd: null,
+  }),
+  
+  // Object placement
+  startPlacingObject: (objectType, category) => set({
+    placementObject: objectType,
+    placementObjectCategory: category,
+    placementPosition: null,
+    currentTool: 'object',
+  }),
+  
+  setPlacementPosition: (position) => set({
+    placementPosition: position,
+  }),
+  
+  placeObject: () => {
+    const { placementObject, placementObjectCategory, placementPosition, currentRoom } = get();
+    
+    if (!placementObject || !placementObjectCategory || !placementPosition || !currentRoom) {
+      return;
+    }
+    
+    const newObject: Object3D = {
+      id: crypto.randomUUID(),
+      type: placementObject,
+      category: placementObjectCategory,
+      position: placementPosition,
+      rotation: { x: 0, y: 0, z: 0 },
+      scale: { x: 1, y: 1, z: 1 },
+    };
+    
+    set({
+      currentRoom: {
+        ...currentRoom,
+        objects: [...currentRoom.objects, newObject],
+      },
+      // Keep placement mode active for placing multiple objects
+      placementPosition: null,
+    });
+  },
+  
+  cancelPlacement: () => set({
+    placementObject: null,
+    placementObjectCategory: null,
+    placementPosition: null,
+    currentTool: 'select',
   }),
   
   addWall: (wall) => {
@@ -376,7 +453,46 @@ export const useBuilderStore = create<BuilderState>()((set, get) => ({
     }
   },
   
+  deleteSelected: () => {
+    const { selectedWall, selectedDoor, selectedWindow, selectedObject } = get();
+    
+    if (selectedWall) {
+      get().removeWall(selectedWall);
+    } else if (selectedDoor) {
+      get().removeDoor(selectedDoor);
+    } else if (selectedWindow) {
+      get().removeWindow(selectedWindow);
+    } else if (selectedObject) {
+      get().removeObject(selectedObject);
+    }
+  },
+  
+  getSelectedElement: () => {
+    const { selectedWall, selectedDoor, selectedWindow, selectedObject, currentRoom } = get();
+    
+    if (!currentRoom) {
+      return { type: 'none', element: null };
+    }
+    
+    if (selectedWall) {
+      const wall = currentRoom.walls.find((w) => w.id === selectedWall);
+      return { type: 'wall', element: wall || null };
+    }
+    if (selectedDoor) {
+      const door = currentRoom.doors.find((d) => d.id === selectedDoor);
+      return { type: 'door', element: door || null };
+    }
+    if (selectedWindow) {
+      const win = currentRoom.windows.find((w) => w.id === selectedWindow);
+      return { type: 'window', element: win || null };
+    }
+    if (selectedObject) {
+      const obj = currentRoom.objects.find((o) => o.id === selectedObject);
+      return { type: 'object', element: obj || null };
+    }
+    
+    return { type: 'none', element: null };
+  },
+  
   reset: () => set(initialState),
 }));
-
-

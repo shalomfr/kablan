@@ -273,6 +273,7 @@ export interface Door3D {
   height: number;
   position: { x: number; y: number; z: number };
   rotation: number;
+  wallId?: string;
   material?: Material3D;
 }
 
@@ -284,6 +285,7 @@ export interface Window3D {
   position: { x: number; y: number; z: number };
   rotation: number;
   glazing: 'single' | 'double' | 'triple';
+  wallId?: string;
   material?: Material3D;
 }
 
@@ -292,8 +294,8 @@ export interface Object3D {
   type: string;
   category: 'furniture' | 'fixture' | 'electrical' | 'hvac' | 'decoration';
   position: { x: number; y: number; z: number };
-  rotation: { x: number; y: number; z: number };
-  scale: { x: number; y: number; z: number };
+  rotation?: { x: number; y: number; z: number };
+  scale?: { x: number; y: number; z: number };
   modelUrl?: string;
   material?: Material3D;
 }
