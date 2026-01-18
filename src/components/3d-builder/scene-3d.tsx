@@ -290,8 +290,8 @@ function Door3DComponent({
       </mesh>
 
       {/* Door handle */}
-      <mesh position={[door.width / 2 - 0.12, 0, 0.09]} castShadow>
-        <cylinderGeometry args={[0.012, 0.012, 0.1, 12]} rotation={[0, 0, Math.PI / 2]} />
+      <mesh position={[door.width / 2 - 0.12, 0, 0.09]} rotation={[0, 0, Math.PI / 2]} castShadow>
+        <cylinderGeometry args={[0.012, 0.012, 0.1, 12]} />
         <meshStandardMaterial color="#D4D4D4" metalness={0.95} roughness={0.1} envMapIntensity={1.2} />
       </mesh>
 

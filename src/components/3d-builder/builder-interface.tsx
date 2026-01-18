@@ -19,7 +19,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
   DropdownMenuShortcut,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
 } from '@/components/ui/dropdown-menu';
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+  ContextMenuSub,
+  ContextMenuSubContent,
+  ContextMenuSubTrigger,
+} from '@/components/ui/context-menu';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
 import {
   Dialog,
   DialogContent,
@@ -82,6 +100,11 @@ import {
   Map,
   MoreVertical,
   EyeOff,
+  Group,
+  Ungroup,
+  ChevronRight,
+  Plus,
+  FolderPlus,
 } from 'lucide-react';
 
 // Dynamically import the 3D canvas to avoid SSR issues
@@ -241,6 +264,25 @@ export function Builder3DInterface() {
     clearMeasurements,
     setFloorTexture,
     setWallTexture,
+    groups,
+    layers,
+    activeLayer,
+    hiddenElements,
+    createGroup,
+    deleteGroup,
+    toggleGroupVisibility,
+    toggleGroupLock,
+    selectGroup,
+    createLayer,
+    deleteLayer,
+    setActiveLayer,
+    toggleLayerVisibility,
+    toggleLayerLock,
+    hideElement,
+    showElement,
+    toggleElementVisibility,
+    isHidden,
+    showAll,
   } = useBuilderStore();
 
   const [objectCategory, setObjectCategory] = useState<string>('all');
@@ -249,6 +291,11 @@ export function Builder3DInterface() {
   const [showLoadDialog, setShowLoadDialog] = useState(false);
   const [loadJson, setLoadJson] = useState('');
   const [showMinimap, setShowMinimap] = useState(true);
+  const [showLayersPanel, setShowLayersPanel] = useState(false);
+  const [showGroupDialog, setShowGroupDialog] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('קבוצה חדשה');
+  const [newLayerName, setNewLayerName] = useState('שכבה חדשה');
+  const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const filteredObjects =
@@ -320,6 +367,20 @@ export function Builder3DInterface() {
     } catch (e) {
       alert('קובץ לא תקין');
     }
+  };
+
+  // Handle group creation
+  const handleCreateGroup = () => {
+    if (selectedElements.length < 2) return;
+    createGroup(newGroupName, selectedElements);
+    setShowGroupDialog(false);
+    setNewGroupName('קבוצה חדשה');
+  };
+
+  // Handle layer creation
+  const handleCreateLayer = () => {
+    createLayer(newLayerName);
+    setNewLayerName('שכבה חדשה');
   };
 
   // Handle file upload
@@ -780,6 +841,21 @@ export function Builder3DInterface() {
                       <Button
                         variant="ghost"
                         size="sm"
+                        onClick={() => setShowGroupDialog(true)}
+                        disabled={selectedElements.length < 2}
+                        className="text-white hover:bg-white/10"
+                      >
+                        <Group className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>קבץ נבחרים (Ctrl+G)</TooltipContent>
+                  </Tooltip>
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
                         onClick={handleLockToggle}
                         disabled={!hasSelection}
                         className="text-white hover:bg-white/10"
@@ -789,7 +865,25 @@ export function Builder3DInterface() {
                     </TooltipTrigger>
                     <TooltipContent>{isSelectedLocked ? 'בטל נעילה' : 'נעל אלמנט'}</TooltipContent>
                   </Tooltip>
-                  
+
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const id = selectedWall || selectedDoor || selectedWindow || selectedObject;
+                          if (id) toggleElementVisibility(id);
+                        }}
+                        disabled={!hasSelection}
+                        className="text-white hover:bg-white/10"
+                      >
+                        <EyeOff className="size-4" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>הסתר אלמנט (H)</TooltipContent>
+                  </Tooltip>
+
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
@@ -1063,11 +1157,12 @@ export function Builder3DInterface() {
         {/* Properties Panel */}
         <div className="w-80 border-r bg-white dark:bg-slate-950">
           <Tabs defaultValue="objects" className="h-full flex flex-col">
-            <TabsList className="m-2 grid grid-cols-4">
-              <TabsTrigger value="objects">אובייקטים</TabsTrigger>
-              <TabsTrigger value="materials">חומרים</TabsTrigger>
-              <TabsTrigger value="textures">טקסטורות</TabsTrigger>
-              <TabsTrigger value="properties">מאפיינים</TabsTrigger>
+            <TabsList className="m-2 grid grid-cols-5">
+              <TabsTrigger value="objects" className="text-xs">אובייקטים</TabsTrigger>
+              <TabsTrigger value="layers" className="text-xs">שכבות</TabsTrigger>
+              <TabsTrigger value="materials" className="text-xs">חומרים</TabsTrigger>
+              <TabsTrigger value="textures" className="text-xs">טקסטורות</TabsTrigger>
+              <TabsTrigger value="properties" className="text-xs">מאפיינים</TabsTrigger>
             </TabsList>
 
             <TabsContent value="objects" className="flex-1 p-0 m-0">
@@ -1113,6 +1208,233 @@ export function Builder3DInterface() {
                       </CardContent>
                     </Card>
                   ))}
+                </div>
+              </ScrollArea>
+            </TabsContent>
+
+            {/* Layers & Groups Tab */}
+            <TabsContent value="layers" className="flex-1 p-0 m-0">
+              <ScrollArea className="h-[calc(100vh-10rem)]">
+                <div className="p-4 space-y-4">
+                  {/* Layers Section */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm font-medium">שכבות</Label>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-7">
+                            <Plus className="size-3 ml-1" />
+                            חדש
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>יצירת שכבה חדשה</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Label>שם השכבה</Label>
+                              <Input
+                                value={newLayerName}
+                                onChange={(e) => setNewLayerName(e.target.value)}
+                                placeholder="שם השכבה"
+                              />
+                            </div>
+                          </div>
+                          <DialogFooter>
+                            <Button onClick={handleCreateLayer}>צור שכבה</Button>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                    </div>
+                    <div className="space-y-1">
+                      {layers.map((layer) => (
+                        <div
+                          key={layer.id}
+                          className={`flex items-center justify-between p-2 rounded-lg border cursor-pointer transition-colors ${
+                            activeLayer === layer.id
+                              ? 'border-cyan-500 bg-cyan-50 dark:bg-cyan-950'
+                              : 'hover:bg-slate-50 dark:hover:bg-slate-900'
+                          }`}
+                          onClick={() => setActiveLayer(layer.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-3 h-3 rounded-full"
+                              style={{ backgroundColor: layer.color }}
+                            />
+                            <span className="text-sm">{layer.name}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleLayerVisibility(layer.id);
+                                  }}
+                                >
+                                  {layer.isVisible ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{layer.isVisible ? 'הסתר' : 'הצג'}</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-6 w-6"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleLayerLock(layer.id);
+                                  }}
+                                >
+                                  {layer.isLocked ? <Lock className="size-3 text-amber-500" /> : <Unlock className="size-3" />}
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{layer.isLocked ? 'בטל נעילה' : 'נעל'}</TooltipContent>
+                            </Tooltip>
+                            {layers.length > 1 && (
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteLayer(layer.id);
+                                    }}
+                                  >
+                                    <Trash2 className="size-3 text-red-400" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>מחק שכבה</TooltipContent>
+                              </Tooltip>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Groups Section */}
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <Label className="text-sm font-medium">קבוצות</Label>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-7"
+                            disabled={selectedElements.length < 2}
+                            onClick={() => setShowGroupDialog(true)}
+                          >
+                            <FolderPlus className="size-3 ml-1" />
+                            קבץ נבחרים
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          {selectedElements.length < 2 ? 'בחר לפחות 2 אלמנטים' : 'צור קבוצה מהנבחרים'}
+                        </TooltipContent>
+                      </Tooltip>
+                    </div>
+                    {groups.length === 0 ? (
+                      <div className="text-center py-4 text-sm text-muted-foreground">
+                        אין קבוצות. בחר מספר אלמנטים וצור קבוצה.
+                      </div>
+                    ) : (
+                      <div className="space-y-1">
+                        {groups.map((group) => (
+                          <div
+                            key={group.id}
+                            className="flex items-center justify-between p-2 rounded-lg border hover:bg-slate-50 dark:hover:bg-slate-900 cursor-pointer"
+                            onClick={() => selectGroup(group.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <Group className="size-4 text-slate-400" />
+                              <span className="text-sm">{group.name}</span>
+                              <Badge variant="outline" className="text-[10px]">
+                                {group.elements.length}
+                              </Badge>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleGroupVisibility(group.id);
+                                    }}
+                                  >
+                                    {group.isVisible ? <Eye className="size-3" /> : <EyeOff className="size-3" />}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>{group.isVisible ? 'הסתר' : 'הצג'}</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleGroupLock(group.id);
+                                    }}
+                                  >
+                                    {group.isLocked ? <Lock className="size-3 text-amber-500" /> : <Unlock className="size-3" />}
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>{group.isLocked ? 'בטל נעילה' : 'נעל'}</TooltipContent>
+                              </Tooltip>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-6 w-6"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      deleteGroup(group.id);
+                                    }}
+                                  >
+                                    <Trash2 className="size-3 text-red-400" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>מחק קבוצה</TooltipContent>
+                              </Tooltip>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+
+                  {/* Hidden Elements */}
+                  {hiddenElements.length > 0 && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <Label className="text-sm font-medium">אלמנטים מוסתרים ({hiddenElements.length})</Label>
+                        <Button variant="ghost" size="sm" className="h-7" onClick={showAll}>
+                          <Eye className="size-3 ml-1" />
+                          הצג הכל
+                        </Button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -1409,6 +1731,39 @@ export function Builder3DInterface() {
               </div>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Group Dialog */}
+      <Dialog open={showGroupDialog} onOpenChange={setShowGroupDialog}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Group className="size-5" />
+              יצירת קבוצה
+            </DialogTitle>
+            <DialogDescription>
+              צור קבוצה מ-{selectedElements.length} אלמנטים נבחרים
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>שם הקבוצה</Label>
+              <Input
+                value={newGroupName}
+                onChange={(e) => setNewGroupName(e.target.value)}
+                placeholder="שם הקבוצה"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowGroupDialog(false)}>
+              ביטול
+            </Button>
+            <Button onClick={handleCreateGroup}>
+              צור קבוצה
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </TooltipProvider>

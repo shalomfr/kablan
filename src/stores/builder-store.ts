@@ -31,6 +31,24 @@ interface ClipboardItem {
   data: Wall3D | Door3D | Window3D | Object3D;
 }
 
+// Group types
+interface ElementGroup {
+  id: string;
+  name: string;
+  elements: string[];
+  isVisible: boolean;
+  isLocked: boolean;
+}
+
+// Layer types
+interface Layer {
+  id: string;
+  name: string;
+  isVisible: boolean;
+  isLocked: boolean;
+  color: string;
+}
+
 interface BuilderState {
   // Project info
   projectName: string;
@@ -94,7 +112,17 @@ interface BuilderState {
   
   // Locked elements
   lockedElements: string[];
-  
+
+  // Groups
+  groups: ElementGroup[];
+
+  // Layers
+  layers: Layer[];
+  activeLayer: string;
+
+  // Hidden elements
+  hiddenElements: string[];
+
   // Floor textures
   floorTexture: string;
   wallTexture: string;
@@ -199,6 +227,29 @@ interface BuilderState {
   lockElement: (id: string) => void;
   unlockElement: (id: string) => void;
   isLocked: (id: string) => boolean;
+
+  // Actions - Groups
+  createGroup: (name: string, elementIds: string[]) => void;
+  deleteGroup: (groupId: string) => void;
+  addToGroup: (groupId: string, elementId: string) => void;
+  removeFromGroup: (groupId: string, elementId: string) => void;
+  toggleGroupVisibility: (groupId: string) => void;
+  toggleGroupLock: (groupId: string) => void;
+  selectGroup: (groupId: string) => void;
+
+  // Actions - Layers
+  createLayer: (name: string) => void;
+  deleteLayer: (layerId: string) => void;
+  setActiveLayer: (layerId: string) => void;
+  toggleLayerVisibility: (layerId: string) => void;
+  toggleLayerLock: (layerId: string) => void;
+
+  // Actions - Visibility
+  hideElement: (id: string) => void;
+  showElement: (id: string) => void;
+  toggleElementVisibility: (id: string) => void;
+  isHidden: (id: string) => boolean;
+  showAll: () => void;
   
   // Actions - Walk mode
   setWalkPosition: (position: { x: number; y: number; z: number }) => void;
@@ -260,6 +311,12 @@ const initialState = {
   maxHistoryLength: 50,
   clipboard: null as ClipboardItem | null,
   lockedElements: [] as string[],
+  groups: [] as ElementGroup[],
+  layers: [
+    { id: 'default', name: 'שכבה ראשית', isVisible: true, isLocked: false, color: '#06b6d4' },
+  ] as Layer[],
+  activeLayer: 'default',
+  hiddenElements: [] as string[],
   floorTexture: 'default',
   wallTexture: 'default',
   walkPosition: { x: 0, y: 1.7, z: 0 },
@@ -1004,7 +1061,167 @@ export const useBuilderStore = create<BuilderState>()(
           const { lockedElements } = get();
           return lockedElements.includes(id);
         },
-        
+
+        // Group actions
+        createGroup: (name, elementIds) => {
+          const { groups } = get();
+          const newGroup: ElementGroup = {
+            id: crypto.randomUUID(),
+            name,
+            elements: elementIds,
+            isVisible: true,
+            isLocked: false,
+          };
+          set({ groups: [...groups, newGroup] });
+        },
+
+        deleteGroup: (groupId) => {
+          const { groups } = get();
+          set({ groups: groups.filter(g => g.id !== groupId) });
+        },
+
+        addToGroup: (groupId, elementId) => {
+          const { groups } = get();
+          set({
+            groups: groups.map(g =>
+              g.id === groupId
+                ? { ...g, elements: [...g.elements, elementId] }
+                : g
+            ),
+          });
+        },
+
+        removeFromGroup: (groupId, elementId) => {
+          const { groups } = get();
+          set({
+            groups: groups.map(g =>
+              g.id === groupId
+                ? { ...g, elements: g.elements.filter(e => e !== elementId) }
+                : g
+            ),
+          });
+        },
+
+        toggleGroupVisibility: (groupId) => {
+          const { groups, hiddenElements } = get();
+          const group = groups.find(g => g.id === groupId);
+          if (!group) return;
+
+          if (group.isVisible) {
+            // Hide all elements in group
+            set({
+              groups: groups.map(g => g.id === groupId ? { ...g, isVisible: false } : g),
+              hiddenElements: [...hiddenElements, ...group.elements],
+            });
+          } else {
+            // Show all elements in group
+            set({
+              groups: groups.map(g => g.id === groupId ? { ...g, isVisible: true } : g),
+              hiddenElements: hiddenElements.filter(e => !group.elements.includes(e)),
+            });
+          }
+        },
+
+        toggleGroupLock: (groupId) => {
+          const { groups, lockedElements } = get();
+          const group = groups.find(g => g.id === groupId);
+          if (!group) return;
+
+          if (group.isLocked) {
+            // Unlock all elements in group
+            set({
+              groups: groups.map(g => g.id === groupId ? { ...g, isLocked: false } : g),
+              lockedElements: lockedElements.filter(e => !group.elements.includes(e)),
+            });
+          } else {
+            // Lock all elements in group
+            set({
+              groups: groups.map(g => g.id === groupId ? { ...g, isLocked: true } : g),
+              lockedElements: [...lockedElements, ...group.elements],
+            });
+          }
+        },
+
+        selectGroup: (groupId) => {
+          const { groups } = get();
+          const group = groups.find(g => g.id === groupId);
+          if (!group) return;
+          set({ selectedElements: [...group.elements] });
+        },
+
+        // Layer actions
+        createLayer: (name) => {
+          const { layers } = get();
+          const colors = ['#06b6d4', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'];
+          const newLayer: Layer = {
+            id: crypto.randomUUID(),
+            name,
+            isVisible: true,
+            isLocked: false,
+            color: colors[layers.length % colors.length],
+          };
+          set({ layers: [...layers, newLayer] });
+        },
+
+        deleteLayer: (layerId) => {
+          const { layers, activeLayer } = get();
+          if (layers.length <= 1) return; // Keep at least one layer
+          const newLayers = layers.filter(l => l.id !== layerId);
+          set({
+            layers: newLayers,
+            activeLayer: activeLayer === layerId ? newLayers[0].id : activeLayer,
+          });
+        },
+
+        setActiveLayer: (layerId) => set({ activeLayer: layerId }),
+
+        toggleLayerVisibility: (layerId) => {
+          const { layers } = get();
+          set({
+            layers: layers.map(l =>
+              l.id === layerId ? { ...l, isVisible: !l.isVisible } : l
+            ),
+          });
+        },
+
+        toggleLayerLock: (layerId) => {
+          const { layers } = get();
+          set({
+            layers: layers.map(l =>
+              l.id === layerId ? { ...l, isLocked: !l.isLocked } : l
+            ),
+          });
+        },
+
+        // Visibility actions
+        hideElement: (id) => {
+          const { hiddenElements } = get();
+          if (!hiddenElements.includes(id)) {
+            set({ hiddenElements: [...hiddenElements, id] });
+          }
+        },
+
+        showElement: (id) => {
+          const { hiddenElements } = get();
+          set({ hiddenElements: hiddenElements.filter(e => e !== id) });
+        },
+
+        toggleElementVisibility: (id) => {
+          const { hiddenElements } = get();
+          if (hiddenElements.includes(id)) {
+            set({ hiddenElements: hiddenElements.filter(e => e !== id) });
+          } else {
+            set({ hiddenElements: [...hiddenElements, id] });
+          }
+        },
+
+        isHidden: (id) => {
+          const { hiddenElements } = get();
+          return hiddenElements.includes(id);
+        },
+
+        showAll: () => set({ hiddenElements: [] }),
+
         // Walk mode actions
         setWalkPosition: (position) => set({ walkPosition: position }),
         setWalkRotation: (rotation) => set({ walkRotation: rotation }),
