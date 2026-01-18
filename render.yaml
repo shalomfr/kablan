@@ -8,7 +8,7 @@ services:
     runtime: node
     region: frankfurt
     plan: free
-    buildCommand: npm install && npm run build
+    buildCommand: npm install && npx prisma generate && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_ENV
@@ -17,4 +17,7 @@ services:
         generateValue: true
       - key: NEXTAUTH_URL
         value: https://contractor-pro.onrender.com
-      # DATABASE_URL - Add manually from Neon/Supabase or existing Render DB
+      - key: DATABASE_URL
+        fromDatabase:
+          name: contraktor
+          property: connectionString
